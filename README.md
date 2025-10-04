@@ -2,7 +2,7 @@
 
 > A lightweight, single-page web application designed to help virtual pinball tournament organizers and players quickly find and share information about specific table releases. This tool serves as a fast, searchable front-end for the extensive Virtual Pinball Spreadsheet (VPS) database, with the intention of supporting the VPINHUB competition page tournaments.
 
-➡️ **Live Application Link:** [https://vpinhub.github.io/vpinhubtournamenthelper/](https://vpinhub.github.io/vpinhubtournamenthelper/)
+➡️ **Live Application Link:** [https://vpinhub.github.io/tournamenthelper/](https://vpinhub.github.io/tournamenthelper/)
 
 ---
 
