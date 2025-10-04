@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VPINHUB Tournament Helper</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-gray-900 font-sans">
+
+  <header class="bg-orange-500 shadow-md sticky top-0 z-40">
+    <div class="container mx-auto px-4 py-4 flex justify-center">
+      <h1 id="mainTitle" class="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+        VPINHUB Tournament Helper
+      </h1>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 md:px-6 py-8">
+    <div id="searchContainer" class="mb-8 flex justify-center">
+      <input id="searchInput" type="text"
+             placeholder="Search by name, manufacturer, or theme..."
+             class="w-full md:w-2/3 p-4 rounded-lg bg-white border border-gray-300 text-gray-800
+                    focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition" />
+    </div>
+    
+    <div id="mainContent">
+        <div class="flex flex-col items-center">
+            <div id="results" class="w-full space-y-5"></div>
+        </div>
+
+        <div id="loader" class="text-center p-8 hidden text-orange-500 font-semibold animate-pulse">
+            <p>Loading more tables...</p>
+        </div>
+    </div>
+
+    <div id="focusedView" class="hidden"></div>
+  </main>
+
+  <div id="modal" class="fixed inset-0 hidden bg-black/80 backdrop-blur-sm items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-orange-400 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 relative">
+        <button id="closeModal" class="absolute top-4 right-4 text-2xl text-orange-500 hover:text-red-500 transition">&times;</button>
+        <div id="modalContent" class="text-gray-900"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let db = [];
+let currentItems = [];
+let currentPage = 1;
+const ITEMS_PER_PAGE = 20;
+
+const searchContainer = document.getElementById("searchContainer");
+const mainContent = document.getElementById("mainContent");
+const focusedViewContainer = document.getElementById("focusedView");
+const mainTitle = document.getElementById("mainTitle");
+const resultsContainer = document.getElementById("results");
+const searchInput = document.getElementById("searchInput");
+const modal = document.getElementById("modal");
+const closeModalBtn = document.getElementById("closeModal");
+const modalContent = document.getElementById("modalContent");
+const loader = document.getElementById("loader");
+
+// --- Data Loading ---
+loader.innerText = "Loading database, please wait...";
+loader.classList.remove('hidden');
+
+fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/db/vpsdb.json")
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+    return res.json();
+  })
+  .then(data => {
+    db = data;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableIdFromUrl = urlParams.get('tableId');
+    const releaseIdFromUrl = urlParams.get('releaseId');
+    const romUrlFromUrl = urlParams.get('rom');
+    const unlistedTableUrl = urlParams.get('unlistedtable');
+
+    if (tableIdFromUrl && (releaseIdFromUrl || unlistedTableUrl)) {
+        const item = db.find(i => i.id === tableIdFromUrl);
+        if (item) {
+            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl);
+        } else {
+            renderResults(db);
+        }
+    } else if (tableIdFromUrl) {
+        renderResults(db);
+        if (db.some(item => item.id === tableIdFromUrl)) {
+            openModal(tableIdFromUrl);
+        }
+    } else {
+        renderResults(db);
+    }
+  })
+  .catch(err => {
+    console.error("Error loading remote JSON", err);
+    loader.innerHTML = `<p class="text-red-400">Failed to load database from GitHub.</p>`;
+  });
+
+// --- Helper Functions ---
+function copyToClipboard(text, btnElement) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = btnElement.innerText;
+        btnElement.innerText = 'Copied!';
+        btnElement.disabled = true;
+        setTimeout(() => { btnElement.innerText = originalText; btnElement.disabled = false; }, 2000);
+    }).catch(err => { console.error('Failed to copy: ', err); alert('Failed to copy URL to clipboard.'); });
+}
+
+// --- View Rendering ---
+function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null) {
+    mainTitle.classList.add('hidden');
+    searchContainer.classList.add('hidden');
+    mainContent.classList.add('hidden');
+
+    const item = db.find(x => x.id === itemId);
+    if (!item) return;
+
+    let focusedTableHtml = '';
+    if (unlistedTableUrl) {
+        const fakeTableFile = { urls: [{ url: unlistedTableUrl }] };
+        focusedTableHtml = renderFile(fakeTableFile, "Tournament Table", item.id, true);
+    } else {
+        const focusedTableFile = (item.tableFiles || []).find(f => f.id === releaseId);
+        if (focusedTableFile) {
+            focusedTableHtml = renderFile(focusedTableFile, "Visual Pinball Table", item.id, true);
+        }
+    }
+    
+    let dynamicRomHtml = '';
+    if (romUrl) {
+        const fakeRomFile = { urls: [{ url: romUrl }] };
+        dynamicRomHtml = renderFile(fakeRomFile, "Tournament Table Rom", null, true);
+    }
+
+    const existingRomFilesHtml = (item.romFiles || []).map(f => renderFile(f, "ROM", null, true)).join("");
+    const otherFilesHtml = [
+        ...(item.b2sFiles || []).map(f => renderFile(f, "B2S Backglass", null, true)),
+        ...(item.povFiles || []).map(f => renderFile(f, "POV File", null, true)),
+        ...(item.wheelArtFiles || []).map(f => renderFile(f, "Wheel Art", null, true)),
+        ...(item.pupPackFiles || []).map(f => renderFile(f, "PUP-Pack", null, true)),
+        ...(item.altColorFiles || []).map(f => renderFile(f, "ALT Color", null, true)),
+        ...(item.altSoundFiles || []).map(f => renderFile(f, "ALT Sound", null, true)),
+        ...(item.tutorialVideoFiles || []).map(f => renderFile(f, "Tutorial Video", null, true)),
+        ...(item.tutorialFiles || []).map(f => renderFile(f, "Tutorial Document", null, true))
+    ].join("");
+    
+    const filesHtml = focusedTableHtml + dynamicRomHtml + existingRomFilesHtml + otherFilesHtml;
+
+    const previewImgUrl = item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl;
+    let previewImageHtml = '';
+    if (previewImgUrl) {
+        // Wrapped the image in a div to center it, and applied the border directly to the image
+        previewImageHtml = `
+            <div class="w-full flex justify-center mb-4">
+                <img src="${previewImgUrl}" alt="Preview for ${item.name}" class="rounded-lg max-h-[50vh] max-w-full object-contain border-2 border-orange-400"/>
+            </div>
+        `;
+    }
+
+    const focusedContent = `
+        <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl border border-orange-400 p-6 md:p-8">
+            <h2 class="text-4xl font-bold mb-1 text-gray-900">${item.name}</h2>
+            <p class="text-lg text-gray-600 mb-4">${item.manufacturer || ""} • ${item.year || ""}</p>
+            ${previewImageHtml} 
+            <p class="mb-4 text-gray-800"><strong>Theme:</strong> ${(item.theme || []).join(", ") || "N/A"}</p>
+            <hr class="border-gray-200 my-4">
+            <div class="space-y-4">${filesHtml}</div>
+        </div>
+    `;
+
+    focusedViewContainer.innerHTML = focusedContent;
+    focusedViewContainer.classList.remove('hidden');
+}
+
+function renderCard(item) {
+    const img = item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl || "https://via.placeholder.com/300x200?text=No+Image";
+    const authors = item.tableFiles?.[0]?.authors?.join(", ") || "Unknown";
+    const type = item.type || "N/A";
+    const players = item.players || "N/A";
+
+    return `
+      <a href="?tableId=${item.id}" class="bg-white rounded-xl shadow-lg hover:shadow-orange-500/20 border border-gray-200 transition cursor-pointer flex p-4 gap-4" data-id="${item.id}">
+        <img src="${img}" class="w-24 h-24 md:w-32 md:h-32 object-cover rounded-md bg-gray-100 flex-shrink-0 self-start" alt="Image for ${item.name}" onerror="this.onerror=null;this.src='https://via.placeholder.com/300x200?text=No+Image';"/>
+        <div class="overflow-hidden flex-grow">
+          <h2 class="text-xl font-bold text-gray-900 truncate">${item.name}</h2>
+          <p class="text-sm text-gray-600">${item.manufacturer || "N/A"} • ${item.year || "N/A"}</p>
+          <p class="text-sm mt-1 text-gray-700 truncate">Authors: ${authors}</p>
+          <p class="text-xs mt-2 pt-2 border-t border-gray-200 text-gray-500">
+            Type: <strong class="font-semibold text-gray-700">${type}</strong> &nbsp;|&nbsp; 
+            Players: <strong class="font-semibold text-gray-700">${players}</strong>
+          </p>
+        </div>
+      </a>`;
+}
+
+function loadMoreItems() {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const paginatedItems = currentItems.slice(start, end);
+    const html = paginatedItems.map(renderCard).join("");
+    resultsContainer.insertAdjacentHTML('beforeend', html);
+    currentPage++;
+    if (end >= currentItems.length) { loader.classList.add('hidden'); } 
+    else { loader.classList.remove('hidden'); loader.innerText = "Loading more tables..."; }
+}
+
+function renderResults(items) {
+    resultsContainer.innerHTML = "";
+    currentItems = items;
+    currentPage = 1;
+    if (items.length === 0) { loader.classList.remove('hidden'); loader.innerText = "No tables found matching your search."; return; }
+    loadMoreItems();
+}
+
+const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) { loadMoreItems(); }
+}, { rootMargin: "200px" });
+observer.observe(loader);
+
+// --- Modal Logic ---
+function openModal(id) {
+  const item = db.find(x => x.id === id);
+  if (!item) return;
+  const files = [
+    ...(item.tableFiles || []).map(f => renderFile(f, "Visual Pinball Table", item.id)),
+    ...(item.b2sFiles || []).map(f => renderFile(f, "B2S Backglass")),
+    ...(item.povFiles || []).map(f => renderFile(f, "POV File")),
+    ...(item.wheelArtFiles || []).map(f => renderFile(f, "Wheel Art")),
+    ...(item.romFiles || []).map(f => renderFile(f, "ROM")),
+    ...(item.pupPackFiles || []).map(f => renderFile(f, "PUP-Pack")),
+    ...(item.altColorFiles || []).map(f => renderFile(f, "ALT Color")),
+    ...(item.altSoundFiles || []).map(f => renderFile(f, "ALT Sound")),
+    ...(item.tutorialVideoFiles || []).map(f => renderFile(f, "Tutorial Video")),
+    ...(item.tutorialFiles || []).map(f => renderFile(f, "Tutorial Document"))
+  ].join("");
+  const previewImgUrl = item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl;
+  let previewImageHtml = '';
+  if (previewImgUrl) { previewImageHtml = `<img src="${previewImgUrl}" alt="Preview for ${item.name}" class="w-full rounded-lg mb-4 max-h-96 object-contain bg-gray-100"/>`; }
+  const content = `
+    <h2 class="text-2xl font-bold mb-1">${item.name}</h2>
+    <p class="text-gray-600 mb-4">${item.manufacturer || ""} • ${item.year || ""}</p>
+    ${previewImageHtml} 
+    <p class="mb-4"><strong>Theme:</strong> ${(item.theme || []).join(", ") || "N/A"}</p>
+    <hr class="border-gray-200 my-4">
+    <div class="space-y-4">${files || "No files listed for this entry."}</div>
+  `;
+  modalContent.innerHTML = content;
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function renderFile(file, label, gameId, isFocusedView = false) {
+  if (!file) return "";
+  if (label === 'Tutorial Document' && !file.url && (!file.urls || file.urls.length === 0)) { return ""; }
+
+  let imageHtml = '';
+  if (file.imgUrl) { imageHtml = `<div class="flex-shrink-0"><img src="${file.imgUrl}" alt="Image for ${label}" class="w-32 h-32 sm:w-40 sm:h-40 object-cover rounded-md border-2 border-orange-400 bg-gray-200"/></div>`; }
+  
+  let urlObjects = [];
+  if (file.urls) { urlObjects = file.urls; } 
+  else if (file.url) { urlObjects = [{ url: file.url }]; }
+  
+  const buttonText = label.includes('Tutorial') ? 'View Tutorial' : 'Download';
+  const urls = urlObjects.map(u => `<a href="${u.url}" target="_blank" class="inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3 py-1 rounded-md transition-colors">${buttonText}</a>`).join("");
+  
+  let iScoredButtonHtml = '';
+  let tournamentButtonHtml = '';
+  if (!isFocusedView && label === 'Visual Pinball Table' && gameId && file.id) {
+    const iScoredUrl = `https://virtualpinballspreadsheet.github.io/?game=${gameId}&fileType=table#${file.id}`;
+    iScoredButtonHtml = `<button onclick="copyToClipboard('${iScoredUrl}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-50">iScored VPinStudio Tag</button>`;
+    
+    const tournamentUrl = `?tableId=${gameId}&releaseId=${file.id}`;
+    tournamentButtonHtml = `<a href="${tournamentUrl}" target="_blank" class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1 rounded-md transition-colors">Tournament View</a>`;
+  }
+
+  const authors = (file.authors || []).join(", ") || "Unknown";
+  const features = (file.features || []).join(", ") || "N/A";
+  const comment = file.comment ? `<p class="text-sm mt-3 p-3 bg-gray-100 rounded-lg"><em>${file.comment}</em></p>` : "";
+
+  const textContentHtml = `
+    <div class="flex-grow">
+      <h3 class="text-lg font-semibold">${label} <span class="text-base font-normal text-gray-500">${file.version ? `v${file.version}` : ''}</span></h3>
+      <p class="text-sm text-gray-700 mt-1"><strong>Authors:</strong> ${authors}</p>
+      <p class="text-sm text-gray-700"><strong>Features:</strong> ${features}</p>
+      <div class="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2 items-center">
+        ${urls || '<span class="text-xs text-gray-500">No links available.</span>'}
+        ${iScoredButtonHtml}
+        ${tournamentButtonHtml}
+      </div>
+      ${comment}
+    </div>`;
+  return `<div class="bg-gray-50 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-start">${imageHtml}${textContentHtml}</div>`;
+}
+
+function closeModal() {
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+// --- Event Listeners ---
+resultsContainer.addEventListener("click", (e) => {
+  const card = e.target.closest('a[data-id]');
+  if (card) { e.preventDefault(); openModal(card.dataset.id); }
+});
+
+let debounceTimer;
+searchInput.addEventListener("input", e => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    const query = e.target.value.toLowerCase().trim();
+    const filtered = db.filter(item =>
+      item.name.toLowerCase().includes(query) ||
+      (item.manufacturer || "").toLowerCase().includes(query) ||
+      (item.tableFiles || []).some(file => (file.authors || []).some(author => author.toLowerCase().includes(query))) ||
+      (item.theme || []).some(t => t.toLowerCase().includes(query))
+    );
+    renderResults(filtered);
+  }, 250);
+});
+
+closeModalBtn.addEventListener("click", closeModal);
+modal.addEventListener("click", (e) => { if (e.target === modal) { closeModal(); } });
+window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.classList.contains("hidden")) { closeModal(); } });
+</script>
+</body>
+</html>
