@@ -18,6 +18,7 @@ This tool would not be possible without the incredible work of the entire commun
 -   **Direct Linking**: Share a link that opens directly to a specific table's modal view.
 -   **iScored VPinStudio Tag**: Quickly generate and copy a URL tag for use in iScored tournaments.
 -   **Tournament View**: A dedicated, shareable "full-page" view for a single table release, perfect for tournament instructions.
+-   **Dynamic Tournament Cards**: Automatically displays rules, date ranges, and submission links for specific weekly competitions (`?swl`, `&ttd`, `&vpc`) when added to a Tournament View URL.
 
 ---
 
@@ -45,6 +46,21 @@ The power of this tool comes from its ability to generate and interpret custom U
     -   **Structure**: `?tableId=[TABLE_ID]&unlistedtable=[TABLE_URL]`
     -   **Example**: `.../?tableId=QDWTicJY&unlistedtable=https://.../unlisted_canyon.vpx`
     -   **Note**: The `&rom=` parameter can also be combined with the `&unlistedtable=` parameter.
+
+5.  **Set a Custom Author for an Unlisted Table**
+    -   When using `&unlistedtable`, you can also specify an author for the custom table file. This is useful for giving proper credit when a version isn't in the database.
+    -   **Structure**: `?tableId=[TABLE_ID]&unlistedtable=[TABLE_URL]&author=[AUTHOR_NAME]`
+    -   **Example**: `.../?tableId=QDWTicJY&unlistedtable=https://.../unlisted_canyon.vpx&author=VPW`
+    -   **Note**: Remember, all parameters after the first one must be separated by `&`, not `?`.
+
+6.  **Display a Tournament Information Card**
+    -   Add a special information card to the top of any Tournament View. The card automatically calculates the current event period and displays specific rules and links.
+    -   This feature supports several weekly competitions:
+        -   `&swl`: Displays the card for "VPINHUB Special When Lit".
+        -   `&ttd`: Displays the card for "VPINHub Thursday Throw Down".
+        -   `&vpc`: Displays the card for "Virtual Pinball Chat Competition Corner".
+    -   **Structure**: `?[TABLE_PARAMS]&[TOURNAMENT_FLAG]`
+    -   **Example**: `.../?tableId=sHyAt2jR&releaseId=RZnU4RRXxJ&swl`
 
 ---
 
