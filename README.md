@@ -10,16 +10,19 @@
 
 This tool would not be possible without the incredible work of the entire community behind the Virtual Pinball Spreadsheet. The data is sourced directly from their public database.
 
+---
+
 ## Features
 
--   **Live Search**: Instantly filter thousands of tables by name, manufacturer, author, or theme.
--   **Infinite Scroll**: Smoothly browse the entire database without pagination.
--   **Detailed Modal View**: Click any table to see a pop-up with all associated files, including backglasses, ROMs, PUP-Packs, alternate sounds/colors, and tutorials.
--   **Direct Linking**: Share a link that opens directly to a specific table's modal view.
--   **iScored VPinStudio Tag**: Quickly generate and copy a URL tag for use in iScored tournaments.
--   **Tournament View**: A dedicated, shareable "full-page" view for a single table release, perfect for tournament instructions.
--   **Dynamic Tournament Cards**: Automatically displays rules, date ranges, and submission links for specific weekly competitions (`?swl`, `&ttd`, `&vpc`) when added to a Tournament View URL.
--   **Fully Dynamic Tournament View**: Add custom notes, unlisted ROMs, and unlisted B2S files directly via URL parameters, and hide non-essential files to create a clean, focused tournament page.
+- **Live Search**: Instantly filter thousands of tables by name, manufacturer, author, or theme.
+- **Infinite Scroll**: Smoothly browse the entire database without pagination.
+- **Detailed Modal View**: Click any table to see a pop-up with all associated files, including backglasses, ROMs, PUP-Packs, alternate sounds/colors, and tutorials.
+- **Direct Linking**: Share a link that opens directly to a specific table's modal view.
+- **iScored VPinStudio Tag**: Quickly generate and copy a URL tag for use in iScored tournaments.
+- **Tournament View**: A dedicated, shareable "full-page" view for a single table release, perfect for tournament instructions.
+- **Dynamic Tournament Cards**: Automatically displays rules, date ranges, and submission links for specific weekly competitions (`?swl`, `&ttd`, `&vpc`) when added to a Tournament View URL.
+- **Fully Dynamic Tournament View**: Add custom notes, unlisted files, and hide non-essential files to create a clean, focused tournament page.
+- **Deep Customization via URL**: Override table/ROM features and even the main preview image for a fully tailored tournament page.
 
 ---
 
@@ -66,7 +69,19 @@ The power of this tool comes from its ability to generate and interpret custom U
     -   **Structure**: `...&tnotes=[NOTE_TEXT]&rom=...&rnotes=[ROM_NOTE_TEXT]`
     -   **Example**: `...&tnotes=Please_use_5-ball_settings.&rom=...&rnotes=Use_v1.6_of_this_ROM`
 
-8.  **Hide Non-Essential Files**
+8.  **Add Custom Features**
+    -   Adds a "Features" line to an unlisted table or a custom ROM. Use commas `,` to separate multiple features and underscores `_` for spaces.
+    -   **`&tfeatures`**: For unlisted tables (requires `&unlistedtable=`).
+    -   **`&rfeatures`**: For custom ROMs (requires `&rom=`).
+    -   **Structure**: `...&unlistedtable=[URL]&tfeatures=[FEATURE_1,FEATURE_2]`
+    -   **Example**: `...&rom=...&rfeatures=Colorized_DMD,Custom_Music`
+
+9.  **Override the Preview Image**
+    -   Sets a custom header image for the Tournament View, overriding the default image from the database.
+    -   **Structure**: `...&img=[IMAGE_URL]`
+    -   **Example**: `...&img=https://i.imgur.com/your-image.jpeg`
+
+10. **Hide Non-Essential Files**
     -   Cleans up the Tournament View by hiding all database-listed files except for the primary Table and ROM files.
     -   **Note**: This will *not* hide custom files added via `&b2s=` or `&rom=`.
     -   **Structure**: `...&hide`
@@ -77,15 +92,16 @@ The power of this tool comes from its ability to generate and interpret custom U
 You can combine these parameters to create a highly specific tournament page.
 
 **URL:**
-`?tableId=QDWTicJY&releaseId=d53_5NH4ne&swl&rom=URL_HERE&rauthor=JP_Salas&b2s=URL_HERE&b2sauthor=Rawd&tnotes=Welcome_to_the_tournament!&hide`
+`?tableId=QDWTicJY&unlistedtable=URL_HERE&author=VPW&swl&rom=URL_HERE&rfeatures=Colorized_DMD&tnotes=Welcome!&hide&img=https://i.imgur.com/your-image.jpeg`
 
 **This URL will generate a page that:**
--   Is for the table "Cactus Canyon (Remake)".
--   Displays the "Special When Lit" tournament info card.
--   Includes a custom ROM link with "JP Salas" as the author.
--   Includes a custom B2S link with "Rawd" as the author.
--   Shows a prominent note saying "Welcome to the tournament!".
--   Hides all other files (POVs, PUP-Packs, etc.) listed in the database.
+-   Is based on the "Cactus Canyon (Remake)" entry.
+-   Uses a custom, **unlisted table file** by "VPW".
+-   Displays the **"Special When Lit"** tournament info card.
+-   Includes a custom ROM link with the feature **"Colorized DMD"**.
+-   Shows a prominent note saying **"Welcome!"**.
+-   Uses a **custom preview image** at the top.
+-   **Hides** all other files (POVs, PUP-Packs, etc.) listed in the database.
 
 ---
 
