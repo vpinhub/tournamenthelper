@@ -82,10 +82,13 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
     const authorFromUrl = urlParams.get('author');
     const tnotesFromUrl = urlParams.get('tnotes');
     const rnotesFromUrl = urlParams.get('rnotes');
+    const tfeaturesFromUrl = urlParams.get('tfeatures');
+    const rfeaturesFromUrl = urlParams.get('rfeatures');
     const hideFromUrl = urlParams.has('hide');
     const b2sUrlFromUrl = urlParams.get('b2s');
     const romAuthorFromUrl = urlParams.get('rauthor');
     const b2sAuthorFromUrl = urlParams.get('b2sauthor');
+    const imgFromUrl = urlParams.get('img'); // Added
     const isSwl = urlParams.has('swl');
     const isTtd = urlParams.has('ttd');
     const isVpc = urlParams.has('vpc');
@@ -93,7 +96,7 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
     if (tableIdFromUrl && (releaseIdFromUrl || unlistedTableUrl)) {
         const item = db.find(i => i.id === tableIdFromUrl);
         if (item) {
-            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl);
+            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl); // Updated call
         } else {
             renderResults(db);
         }
@@ -140,7 +143,7 @@ function createTournamentCard(config) {
     return `<div class="bg-yellow-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-yellow-400"><div class="flex-grow w-full"><h3 class="text-xl font-semibold text-gray-900">${title}</h3><p class="text-base text-gray-700 mt-1"><strong>Event Period:</strong> ${formattedStartDate} - ${formattedEndDate}</p><div class="mt-3"><h4 class="font-semibold mb-2 text-gray-800">Rules & Submission:</h4>${rulesHtml}</div>${buttonsHtml}</div></div>`;
 }
 
-function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null) {
+function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null) { // Updated signature
     mainTitle.classList.add('hidden');
     searchContainer.classList.add('hidden');
     mainContent.classList.add('hidden');
@@ -181,6 +184,9 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         if (author && author.trim() !== '') {
             fakeTableFile.authors = [author.trim()];
         }
+        if (tfeatures) {
+            fakeTableFile.features = decodeURIComponent(tfeatures.replace(/_/g, ' ')).split(',');
+        }
         focusedTableHtml = renderFile(fakeTableFile, "Tournament Table", item.id, true);
     } else {
         const focusedTableFile = (item.tableFiles || []).find(f => f.id === releaseId);
@@ -197,6 +203,9 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         }
         if (romAuthor) {
             fakeRomFile.authors = [decodeURIComponent(romAuthor.replace(/_/g, ' '))];
+        }
+        if (rfeatures) {
+            fakeRomFile.features = decodeURIComponent(rfeatures.replace(/_/g, ' ')).split(',');
         }
         dynamicRomHtml = renderFile(fakeRomFile, "Tournament Table Rom", null, true);
     }
@@ -228,7 +237,8 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
     
     const filesHtml = tournamentCardHtml + tournamentNotesHtml + focusedTableHtml + dynamicRomHtml + dynamicB2sHtml + existingRomFilesHtml + otherFilesHtml;
 
-    const previewImgUrl = item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl;
+    // Updated this section
+    const previewImgUrl = imgUrl || item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl;
     let previewImageHtml = '';
     if (previewImgUrl) {
         previewImageHtml = `<div class="w-full flex justify-center mb-4"><img src="${previewImgUrl}" alt="Preview for ${item.name}" class="rounded-lg max-h-[50vh] max-w-full object-contain border-2 border-orange-400"/></div>`;
