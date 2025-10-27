@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>VPINHUB Tournament Helper</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-black text-gray-900 font-sans">
 
@@ -34,6 +35,11 @@
     </div>
 
     <div id="focusedView" class="hidden"></div>
+
+    <div id="qrContainer" class="mt-12 flex flex-col items-center justify-center hidden">
+      <h3 class="text-2xl font-bold text-white mb-4">Tournament Link</h3>
+      <div id="qrcode" class="p-4 bg-white rounded-lg shadow-lg"></div>
+    </div>
   </main>
 
   <div id="modal" class="fixed inset-0 hidden bg-black/80 backdrop-blur-sm items-center justify-center z-50 p-4">
@@ -88,15 +94,21 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
     const b2sUrlFromUrl = urlParams.get('b2s');
     const romAuthorFromUrl = urlParams.get('rauthor');
     const b2sAuthorFromUrl = urlParams.get('b2sauthor');
-    const imgFromUrl = urlParams.get('img'); // Added
+    const imgFromUrl = urlParams.get('img'); 
     const isSwl = urlParams.has('swl');
     const isTtd = urlParams.has('ttd');
     const isVpc = urlParams.has('vpc');
+    const isFx = urlParams.has('fx'); 
+    const isFx3 = urlParams.has('fx3'); 
+    const fxCode = urlParams.get('fxcode'); 
+    const fxHostFromUrl = urlParams.get('fxhost');
+    const fxPasswordFromUrl = urlParams.get('fxpassword');
+    const hasQrCode = urlParams.has('qrcode'); // <-- ADDED QR CHECK
 
     if (tableIdFromUrl && (releaseIdFromUrl || unlistedTableUrl)) {
         const item = db.find(i => i.id === tableIdFromUrl);
         if (item) {
-            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl); // Updated call
+            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl, isFx, fxCode, isFx3, fxHostFromUrl, fxPasswordFromUrl); 
         } else {
             renderResults(db);
         }
@@ -108,6 +120,33 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
     } else {
         renderResults(db);
     }
+
+    // <-- START: ADDED QR CODE LOGIC -->
+    if (hasQrCode) {
+        const qrContainer = document.getElementById('qrContainer');
+        const qrCodeEl = document.getElementById('qrcode');
+        
+        // Create the URL to encode
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('qrcode');
+        const urlToEncode = currentUrl.toString();
+
+        // Clear any existing QR code and generate a new one
+        qrCodeEl.innerHTML = ''; 
+        new QRCode(qrCodeEl, {
+            text: urlToEncode,
+            width: 256,
+            height: 256,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        // Make the container visible
+        qrContainer.classList.remove('hidden');
+    }
+    // <-- END: ADDED QR CODE LOGIC -->
+
   })
   .catch(err => {
     console.error("Error loading remote JSON", err);
@@ -143,7 +182,7 @@ function createTournamentCard(config) {
     return `<div class="bg-yellow-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-yellow-400"><div class="flex-grow w-full"><h3 class="text-xl font-semibold text-gray-900">${title}</h3><p class="text-base text-gray-700 mt-1"><strong>Event Period:</strong> ${formattedStartDate} - ${formattedEndDate}</p><div class="mt-3"><h4 class="font-semibold mb-2 text-gray-800">Rules & Submission:</h4>${rulesHtml}</div>${buttonsHtml}</div></div>`;
 }
 
-function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null) { // Updated signature
+function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null, isFx = false, fxCode = null, isFx3 = false, fxHost = null, fxPassword = null) {
     mainTitle.classList.add('hidden');
     searchContainer.classList.add('hidden');
     mainContent.classList.add('hidden');
@@ -152,6 +191,7 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
     if (!item) return;
 
     let tournamentCardHtml = '';
+    const isFxPlatform = isFx || isFx3; 
 
     if (isSwl) {
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the event period wins.</li><li>The submission deadline is <strong>Sunday at 2:00 PM Eastern Time</strong>.</li></ul>`;
@@ -170,12 +210,60 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         const buttons = `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="https://discord.com/invite/virtual-pinball-chat-652274650524418078" target="_blank" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Join VPC Discord</a></div>`;
         const config = { title: "Virtual Pinball Chat Competition Corner", cutoffDay: 1, cutoffHour: 0, cutoffTimezone: 'America/Los_Angeles', rulesHtml: rules, buttonsHtml: buttons };
         tournamentCardHtml = createTournamentCard(config);
+    
+    } else if (isFxPlatform) {
+        const cardTitle = isFx3 ? "VPINHUB Pinball FX3 Tournament" : "VPINHUB Pinball FX Tournament"; 
+        const platformName = isFx3 ? "Pinball FX3" : "Pinball FX"; 
+
+        let rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>High score at the end of the 1-hour tournament period wins.</li><li>This tournament is for <strong>${platformName}</strong>.</li>`;
+        
+        if (fxHost) {
+            const decodedHost = decodeURIComponent(fxHost.replace(/_/g, ' '));
+            rules += `<li><strong>Table Host:</strong> ${decodedHost}</li>`;
+        }
+        if (fxPassword) {
+            const decodedPassword = decodeURIComponent(fxPassword.replace(/_/g, ' '));
+            rules += `<li><strong>Tournament Password:</strong> ${decodedPassword}</li>`;
+        }
+        
+        rules += `</ul>`; 
+        
+        let codeHtml = '';
+        if (fxCode) {
+            const decodedCode = decodeURIComponent(fxCode.replace(/_/g, ' '));
+            codeHtml = `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center">
+                <div>
+                    <span class="text-sm font-semibold text-gray-800">${platformName} Tournament Code:</span>
+                    <span class="ml-2 inline-block bg-gray-200 text-gray-900 font-mono text-sm px-3 py-1 rounded">${decodedCode}</span>
+                </div>
+                <button onclick="copyToClipboard('${decodedCode}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">Copy Code</button>
+            </div>`;
+        }
+
+        tournamentCardHtml = `<div class="bg-blue-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-blue-400">
+            <div class="flex-grow w-full">
+                <h3 class="text-xl font-semibold text-gray-900">${cardTitle}</h3>
+                <div class="mt-3">
+                    <h4 class="font-semibold mb-2 text-gray-800">Rules:</h4>
+                    ${rules}
+                </div>
+                ${codeHtml}
+            </div>
+        </div>`;
     }
 
     let tournamentNotesHtml = '';
     if (tnotes) {
         const noteText = decodeURIComponent(tnotes.replace(/_/g, ' '));
         tournamentNotesHtml = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 my-4 rounded" role="alert"><p class="font-bold">Important Note</p><p>${noteText}</p></div>`;
+    }
+
+    let tableLabel = "Visual Pinball Table";
+    if (unlistedTableUrl) {
+        tableLabel = "Tournament Table"; 
+    }
+    if (isFxPlatform) {
+        tableLabel = "Tournament Pinball Table"; 
     }
 
     let focusedTableHtml = '';
@@ -187,57 +275,74 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         if (tfeatures) {
             fakeTableFile.features = decodeURIComponent(tfeatures.replace(/_/g, ' ')).split(',');
         }
-        focusedTableHtml = renderFile(fakeTableFile, "Tournament Table", item.id, true);
+        focusedTableHtml = renderFile(fakeTableFile, tableLabel, item.id, true, isFxPlatform);
     } else {
         const focusedTableFile = (item.tableFiles || []).find(f => f.id === releaseId);
         if (focusedTableFile) {
-            focusedTableHtml = renderFile(focusedTableFile, "Visual Pinball Table", item.id, true);
+            focusedTableHtml = renderFile(focusedTableFile, tableLabel, item.id, true, isFxPlatform);
         }
     }
     
+    
     let dynamicRomHtml = '';
-    if (romUrl) {
-        const fakeRomFile = { urls: [{ url: romUrl }] };
-        if (rnotes) {
-            fakeRomFile.comment = decodeURIComponent(rnotes.replace(/_/g, ' '));
+    let existingRomFilesHtml = '';
+
+    if (!isFxPlatform) { 
+        if (romUrl) {
+            const fakeRomFile = { urls: [{ url: romUrl }] };
+            if (rnotes) {
+                fakeRomFile.comment = decodeURIComponent(rnotes.replace(/_/g, ' '));
+            }
+            if (romAuthor) {
+                fakeRomFile.authors = [decodeURIComponent(romAuthor.replace(/_/g, ' '))];
+            }
+            if (rfeatures) {
+                fakeRomFile.features = decodeURIComponent(rfeatures.replace(/_/g, ' ')).split(',');
+            }
+            dynamicRomHtml = renderFile(fakeRomFile, "Tournament Table Rom", null, true);
         }
-        if (romAuthor) {
-            fakeRomFile.authors = [decodeURIComponent(romAuthor.replace(/_/g, ' '))];
-        }
-        if (rfeatures) {
-            fakeRomFile.features = decodeURIComponent(rfeatures.replace(/_/g, ' ')).split(',');
-        }
-        dynamicRomHtml = renderFile(fakeRomFile, "Tournament Table Rom", null, true);
+        
+        existingRomFilesHtml = (item.romFiles || []).map(f => renderFile(f, "ROM", null, true)).join("");
     }
 
     let dynamicB2sHtml = '';
     if (b2sUrl) {
         const fakeB2sFile = { urls: [{ url: b2sUrl }] };
+        let authorName = '';
         if (b2sAuthor) {
-            fakeB2sFile.authors = [decodeURIComponent(b2sAuthor.replace(/_/g, ' '))];
+            authorName = decodeURIComponent(b2sAuthor.replace(/_/g, ' '));
+            fakeB2sFile.authors = [authorName];
         }
-        dynamicB2sHtml = renderFile(fakeB2sFile, "Tournament B2S", null, true);
+
+        if (!isFxPlatform || (isFxPlatform && authorName.toLowerCase() === 'ddh69')) {
+             dynamicB2sHtml = renderFile(fakeB2sFile, "Tournament B2S", null, true);
+        }
     }
 
-    const existingRomFilesHtml = (item.romFiles || []).map(f => renderFile(f, "ROM", null, true)).join("");
+    let tutorialDocsHtml = (item.tutorialFiles || []).map(f => renderFile(f, "Tutorial Document", null, true)).join("");
 
     let otherFilesHtml = '';
     if (!hide) {
-        otherFilesHtml = [
-            ...(item.b2sFiles || []).map(f => renderFile(f, "B2S Backglass", null, true)),
-            ...(item.povFiles || []).map(f => renderFile(f, "POV File", null, true)),
-            ...(item.wheelArtFiles || []).map(f => renderFile(f, "Wheel Art", null, true)),
-            ...(item.pupPackFiles || []).map(f => renderFile(f, "PUP-Pack", null, true)),
-            ...(item.altColorFiles || []).map(f => renderFile(f, "ALT Color", null, true)),
-            ...(item.altSoundFiles || []).map(f => renderFile(f, "ALT Sound", null, true)),
-            ...(item.tutorialVideoFiles || []).map(f => renderFile(f, "Tutorial Video", null, true)),
-            ...(item.tutorialFiles || []).map(f => renderFile(f, "Tutorial Document", null, true))
-        ].join("");
+        if (!isFxPlatform) {
+            otherFilesHtml = [
+                ...(item.b2sFiles || []).map(f => renderFile(f, "B2S Backglass", null, true)),
+                ...(item.povFiles || []).map(f => renderFile(f, "POV File", null, true)),
+                ...(item.wheelArtFiles || []).map(f => renderFile(f, "Wheel Art", null, true)),
+                ...(item.pupPackFiles || []).map(f => renderFile(f, "PUP-Pack", null, true)),
+                ...(item.altColorFiles || []).map(f => renderFile(f, "ALT Color", null, true)),
+                ...(item.altSoundFiles || []).map(f => renderFile(f, "ALT Sound", null, true)),
+                ...(item.tutorialVideoFiles || []).map(f => renderFile(f, "Tutorial Video", null, true))
+            ].join("");
+        } else {
+            otherFilesHtml = (item.b2sFiles || [])
+                .filter(f => (f.authors || []).some(a => a.toLowerCase() === 'ddh69'))
+                .map(f => renderFile(f, "B2S Backglass", null, true))
+                .join("");
+        }
     }
     
-    const filesHtml = tournamentCardHtml + tournamentNotesHtml + focusedTableHtml + dynamicRomHtml + dynamicB2sHtml + existingRomFilesHtml + otherFilesHtml;
+    const filesHtml = tournamentCardHtml + tournamentNotesHtml + focusedTableHtml + dynamicRomHtml + dynamicB2sHtml + existingRomFilesHtml + otherFilesHtml + tutorialDocsHtml;
 
-    // Updated this section
     const previewImgUrl = imgUrl || item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl;
     let previewImageHtml = '';
     if (previewImgUrl) {
@@ -286,16 +391,16 @@ function openModal(id) {
   const item = db.find(x => x.id === id);
   if (!item) return;
   const files = [
-    ...(item.tableFiles || []).map(f => renderFile(f, "Visual Pinball Table", item.id)),
-    ...(item.b2sFiles || []).map(f => renderFile(f, "B2S Backglass")),
-    ...(item.povFiles || []).map(f => renderFile(f, "POV File")),
-    ...(item.wheelArtFiles || []).map(f => renderFile(f, "Wheel Art")),
-    ...(item.romFiles || []).map(f => renderFile(f, "ROM")),
-    ...(item.pupPackFiles || []).map(f => renderFile(f, "PUP-Pack")),
-    ...(item.altColorFiles || []).map(f => renderFile(f, "ALT Color")),
-    ...(item.altSoundFiles || []).map(f => renderFile(f, "ALT Sound")),
-    ...(item.tutorialVideoFiles || []).map(f => renderFile(f, "Tutorial Video")),
-    ...(item.tutorialFiles || []).map(f => renderFile(f, "Tutorial Document"))
+    ...(item.tableFiles || []).map(f => renderFile(f, "Visual Pinball Table", item.id, false, false)),
+    ...(item.b2sFiles || []).map(f => renderFile(f, "B2S Backglass", null, false, false)),
+    ...(item.povFiles || []).map(f => renderFile(f, "POV File", null, false, false)),
+    ...(item.wheelArtFiles || []).map(f => renderFile(f, "Wheel Art", null, false, false)),
+    ...(item.romFiles || []).map(f => renderFile(f, "ROM", null, false, false)),
+    ...(item.pupPackFiles || []).map(f => renderFile(f, "PUP-Pack", null, false, false)),
+    ...(item.altColorFiles || []).map(f => renderFile(f, "ALT Color", null, false, false)),
+    ...(item.altSoundFiles || []).map(f => renderFile(f, "ALT Sound", null, false, false)),
+    ...(item.tutorialVideoFiles || []).map(f => renderFile(f, "Tutorial Video", null, false, false)),
+    ...(item.tutorialFiles || []).map(f => renderFile(f, "Tutorial Document", null, false, false))
   ].join("");
   const previewImgUrl = item.b2sFiles?.[0]?.imgUrl || item.tableFiles?.[0]?.imgUrl;
   let previewImageHtml = '';
@@ -306,7 +411,7 @@ function openModal(id) {
   modal.classList.add("flex");
 }
 
-function renderFile(file, label, gameId, isFocusedView = false) {
+function renderFile(file, label, gameId, isFocusedView = false, isFxPlatform = false) {
   if (!file) return "";
   if (label === 'Tutorial Document' && !file.url && (!file.urls || file.urls.length === 0)) { return ""; }
 
@@ -318,7 +423,14 @@ function renderFile(file, label, gameId, isFocusedView = false) {
   else if (file.url) { urlObjects = [{ url: file.url }]; }
   
   const buttonText = label.includes('Tutorial') ? 'View Tutorial' : 'Download';
-  const urls = urlObjects.map(u => `<a href="${u.url}" target="_blank" class="inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3 py-1 rounded-md transition-colors">${buttonText}</a>`).join("");
+  
+  let urlsHtml;
+  if (isFxPlatform && (label === 'Tournament Pinball Table' || label === 'Tournament Table')) {
+      urlsHtml = '<span class="text-xs text-gray-500">This is a Pinball FX/FX3 table. No download required.</span>';
+  } else {
+      const downloadLinks = urlObjects.map(u => `<a href="${u.url}" target="_blank" class="inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3 py-1 rounded-md transition-colors">${buttonText}</a>`).join("");
+      urlsHtml = downloadLinks || '<span class="text-xs text-gray-500">No links available.</span>';
+  }
   
   let iScoredButtonHtml = '';
   let tournamentButtonHtml = '';
@@ -340,7 +452,7 @@ function renderFile(file, label, gameId, isFocusedView = false) {
       <p class="text-sm text-gray-700 mt-1"><strong>Authors:</strong> ${authors}</p>
       <p class="text-sm text-gray-700"><strong>Features:</strong> ${features}</p>
       <div class="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2 items-center">
-        ${urls || '<span class="text-xs text-gray-500">No links available.</span>'}
+        ${urlsHtml}
         ${iScoredButtonHtml}
         ${tournamentButtonHtml}
       </div>
