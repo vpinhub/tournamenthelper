@@ -80,6 +80,13 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
   .then(data => {
     db = data;
     
+    // --- ADDED SORTING ---
+    // Sort by most recently updated/created, just like in your other file
+    if (Array.isArray(db)) {
+      db.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    }
+    // --- END ADDED SORTING ---
+    
     const urlParams = new URLSearchParams(window.location.search);
     const tableIdFromUrl = urlParams.get('tableId');
     const releaseIdFromUrl = urlParams.get('releaseId');
