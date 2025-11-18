@@ -56,6 +56,7 @@ let db = [];
 let currentItems = [];
 let currentPage = 1;
 const ITEMS_PER_PAGE = 20;
+let countdownInterval = null;
 
 const searchContainer = document.getElementById("searchContainer");
 const mainContent = document.getElementById("mainContent");
@@ -80,12 +81,9 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
   .then(data => {
     db = data;
     
-    // --- ADDED SORTING ---
-    // Sort by most recently updated/created, just like in your other file
     if (Array.isArray(db)) {
       db.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     }
-    // --- END ADDED SORTING ---
     
     const urlParams = new URLSearchParams(window.location.search);
     const tableIdFromUrl = urlParams.get('tableId');
@@ -110,12 +108,14 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
     const fxCode = urlParams.get('fxcode'); 
     const fxHostFromUrl = urlParams.get('fxhost');
     const fxPasswordFromUrl = urlParams.get('fxpassword');
-    const hasQrCode = urlParams.has('qrcode'); // <-- ADDED QR CHECK
+    const hasQrCode = urlParams.has('qrcode');
+    const isFx24 = urlParams.has('fx24');
+    const fxStart = urlParams.get('fxstart'); 
 
     if (tableIdFromUrl && (releaseIdFromUrl || unlistedTableUrl)) {
         const item = db.find(i => i.id === tableIdFromUrl);
         if (item) {
-            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl, isFx, fxCode, isFx3, fxHostFromUrl, fxPasswordFromUrl); 
+            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl, isFx, fxCode, isFx3, fxHostFromUrl, fxPasswordFromUrl, isFx24, fxStart); 
         } else {
             renderResults(db);
         }
@@ -128,17 +128,14 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
         renderResults(db);
     }
 
-    // <-- START: ADDED QR CODE LOGIC -->
     if (hasQrCode) {
         const qrContainer = document.getElementById('qrContainer');
         const qrCodeEl = document.getElementById('qrcode');
         
-        // Create the URL to encode
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.delete('qrcode');
         const urlToEncode = currentUrl.toString();
 
-        // Clear any existing QR code and generate a new one
         qrCodeEl.innerHTML = ''; 
         new QRCode(qrCodeEl, {
             text: urlToEncode,
@@ -149,10 +146,8 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
             correctLevel: QRCode.CorrectLevel.H
         });
         
-        // Make the container visible
         qrContainer.classList.remove('hidden');
     }
-    // <-- END: ADDED QR CODE LOGIC -->
 
   })
   .catch(err => {
@@ -169,6 +164,123 @@ function copyToClipboard(text, btnElement) {
         setTimeout(() => { btnElement.innerText = originalText; btnElement.disabled = false; }, 2000);
     }).catch(err => { console.error('Failed to copy: ', err); alert('Failed to copy URL to clipboard.'); });
 }
+
+// <-- START: MODIFIED COUNTDOWN FUNCTION -->
+/**
+ * Starts a 3-state countdown timer (Starts In, Ends In, Ended).
+ * @param {number} startTime - The start time in milliseconds.
+ * @param {number} endTime - The end time in milliseconds.
+ */
+function startCountdown(startTime, endTime) {
+    if (countdownInterval) clearInterval(countdownInterval);
+
+    const timerHeading = document.getElementById('timerHeading');
+    const timerDisplay = document.getElementById('timerDisplay');
+    const endDateEl = document.getElementById('timerEndDate');
+    
+    if (!timerHeading || !timerDisplay || !endDateEl) return; // Elements not on page
+
+    const daysEl = timerDisplay.querySelector('[data-timer="days"]');
+    const hoursEl = timerDisplay.querySelector('[data-timer="hours"]');
+    const minutesEl = timerDisplay.querySelector('[data-timer="minutes"]');
+    const secondsEl = timerDisplay.querySelector('[data-timer="seconds"]');
+
+    function updateTimer() {
+        const now = new Date().getTime();
+        const timeUntilStart = startTime - now;
+        const timeUntilEnd = endTime - now;
+
+        let targetTime, days, hours, minutes, seconds;
+
+        if (timeUntilStart > 0) {
+            // --- 1. Tournament Hasn't Started Yet ---
+            timerHeading.innerText = "Tournament Starts In:";
+            endDateEl.innerText = `Starts on: ${new Date(startTime).toLocaleString()}`;
+            targetTime = timeUntilStart;
+
+        } else if (timeUntilEnd > 0) {
+            // --- 2. Tournament Is Active ---
+            timerHeading.innerText = "Tournament Ends In:";
+            endDateEl.innerText = `Ends on: ${new Date(endTime).toLocaleString()}`;
+            targetTime = timeUntilEnd;
+            
+        } else {
+            // --- 3. Tournament Has Ended ---
+            clearInterval(countdownInterval);
+            timerHeading.innerText = "Tournament Ended";
+            timerDisplay.innerHTML = "Event Over";
+            timerDisplay.classList.remove('text-orange-600');
+            timerDisplay.classList.add('text-red-600', 'text-3xl');
+            endDateEl.innerText = `Ended on: ${new Date(endTime).toLocaleString()}`;
+            return;
+        }
+
+        // Calculate time parts for "Starts In" or "Ends In"
+        seconds = Math.floor((targetTime / 1000) % 60);
+        minutes = Math.floor((targetTime / 1000 / 60) % 60);
+        hours = Math.floor((targetTime / (1000 * 60 * 60)) % 24);
+        days = Math.floor(targetTime / (1000 * 60 * 60 * 24));
+
+        daysEl.innerText = String(days).padStart(2, '0');
+        hoursEl.innerText = String(hours).padStart(2, '0');
+        minutesEl.innerText = String(minutes).padStart(2, '0');
+        secondsEl.innerText = String(seconds).padStart(2, '0');
+    }
+
+    updateTimer();
+    countdownInterval = setInterval(updateTimer, 1000);
+}
+// <-- END: MODIFIED COUNTDOWN FUNCTION -->
+
+/**
+ * Calculates start/end times for a 24h tournament.
+ * Handles 'fxstart' as a specific hour in ET or a full date string.
+ * @param {string} fxStartParam - The 'fxstart' URL parameter.
+ * @returns {{startTime: Date | null, endTime: Date | null, startString: string}}
+ */
+function calculateFx24Times(fxStartParam) {
+    let startTime, endTime;
+    let startString = "Invalid Start Time";
+    const timeZone = 'America/New_York'; // Eastern Time
+
+    try {
+        const decodedStart = decodeURIComponent(fxStartParam);
+        const startHour = parseInt(decodedStart, 10);
+
+        if (!isNaN(startHour) && String(startHour) === decodedStart && startHour >= 0 && startHour <= 23) {
+            const nowET = new Date(new Date().toLocaleString('en-US', { timeZone }));
+            let startET = new Date(nowET);
+            startET.setHours(startHour, 0, 0, 0);
+
+            if (nowET.getTime() > startET.getTime()) {
+                startET.setDate(startET.getDate() + 1);
+            }
+            
+            startTime = startET;
+            startString = startTime.toLocaleString('en-US', { 
+                timeZone, 
+                month: 'long', 
+                day: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                timeZoneName: 'short' 
+            });
+        
+        } else {
+            startTime = new Date(decodedStart);
+            startString = startTime.toLocaleString();
+        }
+
+        endTime = new Date(startTime.getTime() + 24 * 60 * 60 * 1000);
+        
+        return { startTime, endTime, startString };
+
+    } catch (e) {
+        console.error("Error parsing fxstart time:", e);
+        return { startTime: null, endTime: null, startString: "Invalid Start Time" };
+    }
+}
+
 
 // --- View Rendering ---
 function createTournamentCard(config) {
@@ -189,7 +301,7 @@ function createTournamentCard(config) {
     return `<div class="bg-yellow-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-yellow-400"><div class="flex-grow w-full"><h3 class="text-xl font-semibold text-gray-900">${title}</h3><p class="text-base text-gray-700 mt-1"><strong>Event Period:</strong> ${formattedStartDate} - ${formattedEndDate}</p><div class="mt-3"><h4 class="font-semibold mb-2 text-gray-800">Rules & Submission:</h4>${rulesHtml}</div>${buttonsHtml}</div></div>`;
 }
 
-function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null, isFx = false, fxCode = null, isFx3 = false, fxHost = null, fxPassword = null) {
+function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null, isFx = false, fxCode = null, isFx3 = false, fxHost = null, fxPassword = null, isFx24 = false, fxStart = null) {
     mainTitle.classList.add('hidden');
     searchContainer.classList.add('hidden');
     mainContent.classList.add('hidden');
@@ -198,7 +310,7 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
     if (!item) return;
 
     let tournamentCardHtml = '';
-    const isFxPlatform = isFx || isFx3; 
+    const isFxPlatform = isFx || isFx3 || isFx24; 
 
     if (isSwl) {
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the event period wins.</li><li>The submission deadline is <strong>Sunday at 2:00 PM Eastern Time</strong>.</li></ul>`;
@@ -219,23 +331,20 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         tournamentCardHtml = createTournamentCard(config);
     
     } else if (isFxPlatform) {
-        const cardTitle = isFx3 ? "VPINHUB Pinball FX3 Tournament" : "VPINHUB Pinball FX Tournament"; 
-        const platformName = isFx3 ? "Pinball FX3" : "Pinball FX"; 
-
-        let rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>High score at the end of the 1-hour tournament period wins.</li><li>This tournament is for <strong>${platformName}</strong>.</li>`;
         
+        const platformName = (isFx3) ? "Pinball FX3" : "Pinball FX";
+        let rulesList = '';
+        let codeHtml = '';
+
         if (fxHost) {
             const decodedHost = decodeURIComponent(fxHost.replace(/_/g, ' '));
-            rules += `<li><strong>Table Host:</strong> ${decodedHost}</li>`;
+            rulesList += `<li><strong>Table Host:</strong> ${decodedHost}</li>`;
         }
         if (fxPassword) {
             const decodedPassword = decodeURIComponent(fxPassword.replace(/_/g, ' '));
-            rules += `<li><strong>Tournament Password:</strong> ${decodedPassword}</li>`;
+            rulesList += `<li><strong>Tournament Password:</strong> ${decodedPassword}</li>`;
         }
         
-        rules += `</ul>`; 
-        
-        let codeHtml = '';
         if (fxCode) {
             const decodedCode = decodeURIComponent(fxCode.replace(/_/g, ' '));
             codeHtml = `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center">
@@ -247,16 +356,67 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
             </div>`;
         }
 
-        tournamentCardHtml = `<div class="bg-blue-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-blue-400">
-            <div class="flex-grow w-full">
-                <h3 class="text-xl font-semibold text-gray-900">${cardTitle}</h3>
-                <div class="mt-3">
-                    <h4 class="font-semibold mb-2 text-gray-800">Rules:</h4>
-                    ${rules}
+
+        if (isFx24 && fxStart) {
+            // --- 24-Hour Tournament Card ---
+            const { startTime, startString } = calculateFx24Times(fxStart);
+            const cardTitle = `VPINHUB 24-Hour ${platformName} Tournament`;
+            
+            // <-- START: MODIFIED COUNTDOWN HTML (h4 has an ID now) -->
+            const countdownHtml = `
+                <div class="text-center my-4 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                    <h4 id="timerHeading" class="text-lg font-semibold text-gray-800">Calculating...</h4>
+                    <div class="text-4xl font-mono tracking-widest text-orange-600" id="timerDisplay">
+                        <span data-timer="days">00</span>d
+                        <span data-timer="hours">00</span>h
+                        <span data-timer="minutes">00</span>m
+                        <span data-timer="seconds">00</span>s
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2" id="timerEndDate">Calculating...</p>
                 </div>
-                ${codeHtml}
-            </div>
-        </div>`;
+            `;
+            // <-- END: MODIFIED COUNTDOWN HTML -->
+            
+            const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
+                <li>High score at the end of the 24-hour period wins.</li>
+                <li>This tournament is for <strong>${platformName}</strong>.</li>
+                <li><strong>Starts:</strong> ${startString}</li>
+                ${rulesList}
+            </ul>`;
+
+            tournamentCardHtml = `<div class="bg-blue-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-blue-400">
+                <div class="flex-grow w-full">
+                    <h3 class="text-xl font-semibold text-gray-900">${cardTitle}</h3>
+                    ${(startTime ? countdownHtml : `<p class="text-red-500 font-bold p-4 bg-red-100 rounded">Error: ${startString}. Please check the 'fxstart' parameter.</p>`)}
+                    <div class="mt-3">
+                        <h4 class="font-semibold mb-2 text-gray-800">Details:</h4>
+                        ${rules}
+                    </div>
+                    ${codeHtml}
+                </div>
+            </div>`;
+            
+        } else {
+            // --- Standard 1-Hour Tournament Card ---
+            const cardTitle = isFx3 ? "VPINHUB Pinball FX3 Tournament" : "VPINHUB Pinball FX Tournament"; 
+
+            let rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
+                <li>High score at the end of the 1-hour tournament period wins.</li>
+                <li>This tournament is for <strong>${platformName}</strong>.</li>
+                ${rulesList}
+            </ul>`; 
+            
+            tournamentCardHtml = `<div class="bg-blue-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-blue-400">
+                <div class="flex-grow w-full">
+                    <h3 class="text-xl font-semibold text-gray-900">${cardTitle}</h3>
+                    <div class="mt-3">
+                        <h4 class="font-semibold mb-2 text-gray-800">Rules:</h4>
+                        ${rules}
+                    </div>
+                    ${codeHtml}
+                </div>
+            </div>`;
+        }
     }
 
     let tournamentNotesHtml = '';
@@ -360,6 +520,24 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
 
     focusedViewContainer.innerHTML = focusedContent;
     focusedViewContainer.classList.remove('hidden');
+
+    // <-- START: MODIFIED COUNTDOWN CALL -->
+    if (isFx24 && fxStart) {
+        // Get both start and end times
+        const { startTime, endTime } = calculateFx24Times(fxStart);
+        if (startTime && endTime) {
+            // Pass BOTH times to the countdown function
+            startCountdown(startTime.getTime(), endTime.getTime());
+        } else {
+            console.error("Failed to parse fxstart time.");
+            const timerDisplay = document.getElementById('timerDisplay');
+            if(timerDisplay) {
+                timerDisplay.innerHTML = "Error loading timer.";
+                timerDisplay.classList.add('text-red-600');
+            }
+        }
+    }
+    // <-- END: MODIFIED COUNTDOWN CALL -->
 }
 
 function renderCard(item) {
