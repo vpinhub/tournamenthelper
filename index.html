@@ -56,7 +56,6 @@ let db = [];
 let currentItems = [];
 let currentPage = 1;
 const ITEMS_PER_PAGE = 20;
-// let countdownInterval = null; <-- REMOVED
 
 const searchContainer = document.getElementById("searchContainer");
 const mainContent = document.getElementById("mainContent");
@@ -110,12 +109,13 @@ fetch("https://raw.githubusercontent.com/VirtualPinballSpreadsheet/vps-db/main/d
     const fxPasswordFromUrl = urlParams.get('fxpassword');
     const hasQrCode = urlParams.has('qrcode');
     const isFx24 = urlParams.has('fx24');
-    const fxStart = urlParams.get('fxstart');  
+    const fxStart = urlParams.get('fxstart');
+    const is90min = urlParams.has('90min');
 
     if (tableIdFromUrl && (releaseIdFromUrl || unlistedTableUrl)) {
         const item = db.find(i => i.id === tableIdFromUrl);
         if (item) {
-            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl, isFx, fxCode, isFx3, fxHostFromUrl, fxPasswordFromUrl, isFx24, fxStart);  
+            renderFocusedView(tableIdFromUrl, releaseIdFromUrl, romUrlFromUrl, unlistedTableUrl, isSwl, isTtd, isVpc, authorFromUrl, tnotesFromUrl, rnotesFromUrl, hideFromUrl, b2sUrlFromUrl, romAuthorFromUrl, b2sAuthorFromUrl, tfeaturesFromUrl, rfeaturesFromUrl, imgFromUrl, isFx, fxCode, isFx3, fxHostFromUrl, fxPasswordFromUrl, isFx24, fxStart, is90min);  
         } else {
             renderResults(db);
         }
@@ -165,16 +165,6 @@ function copyToClipboard(text, btnElement) {
     }).catch(err => { console.error('Failed to copy: ', err); alert('Failed to copy URL to clipboard.'); });
 }
 
-// <-- START: MODIFIED COUNTDOWN FUNCTION -->
-// The 'startCountdown' function definition has been removed.
-// <-- END: MODIFIED COUNTDOWN FUNCTION -->
-
-/**
- * Calculates start/end times for a 24h tournament.
- * Handles 'fxstart' as a specific hour in ET or a full date string.
- * @param {string} fxStartParam - The 'fxstart' URL parameter.
- * @returns {{startTime: Date | null, endTime: Date | null, startString: string}}
- */
 function calculateFx24Times(fxStartParam) {
     let startTime, endTime;
     let startString = "Invalid Start Time";
@@ -221,24 +211,36 @@ function calculateFx24Times(fxStartParam) {
 
 // --- View Rendering ---
 function createTournamentCard(config) {
-    const { title, rulesHtml, buttonsHtml, cutoffDay, cutoffHour, cutoffTimezone } = config;
-    const nowTZ = new Date(new Date().toLocaleString('en-US', { timeZone: cutoffTimezone }));
-    let endDate = new Date(nowTZ);
-    endDate.setHours(cutoffHour, 0, 0, 0);
-    const daysToAdd = (cutoffDay - nowTZ.getDay() + 7) % 7;
-    endDate.setDate(endDate.getDate() + daysToAdd);
-    if (daysToAdd === 0 && nowTZ.getHours() >= cutoffHour) {
-        endDate.setDate(endDate.getDate() + 7);
+    // UPDATED: Now destructures 'customDate' from config
+    const { title, rulesHtml, buttonsHtml, cutoffDay, cutoffHour, cutoffTimezone, customDate } = config;
+    
+    let dateRangeString = "";
+
+    if (customDate) {
+        // If a custom date is provided, use it directly
+        dateRangeString = customDate;
+    } else {
+        // Otherwise, calculate the weekly range as before
+        const nowTZ = new Date(new Date().toLocaleString('en-US', { timeZone: cutoffTimezone }));
+        let endDate = new Date(nowTZ);
+        endDate.setHours(cutoffHour, 0, 0, 0);
+        const daysToAdd = (cutoffDay - nowTZ.getDay() + 7) % 7;
+        endDate.setDate(endDate.getDate() + daysToAdd);
+        if (daysToAdd === 0 && nowTZ.getHours() >= cutoffHour) {
+            endDate.setDate(endDate.getDate() + 7);
+        }
+        let startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - 7);
+        const dateOptions = { month: 'long', day: 'numeric' };
+        const formattedStartDate = startDate.toLocaleDateString('en-US', dateOptions);
+        const formattedEndDate = endDate.toLocaleDateString('en-US', dateOptions);
+        dateRangeString = `${formattedStartDate} - ${formattedEndDate}`;
     }
-    let startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - 7);
-    const dateOptions = { month: 'long', day: 'numeric' };
-    const formattedStartDate = startDate.toLocaleDateString('en-US', dateOptions);
-    const formattedEndDate = endDate.toLocaleDateString('en-US', dateOptions);
-    return `<div class="bg-yellow-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-yellow-400"><div class="flex-grow w-full"><h3 class="text-xl font-semibold text-gray-900">${title}</h3><p class="text-base text-gray-700 mt-1"><strong>Event Period:</strong> ${formattedStartDate} - ${formattedEndDate}</p><div class="mt-3"><h4 class="font-semibold mb-2 text-gray-800">Rules & Submission:</h4>${rulesHtml}</div>${buttonsHtml}</div></div>`;
+
+    return `<div class="bg-yellow-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-yellow-400"><div class="flex-grow w-full"><h3 class="text-xl font-semibold text-gray-900">${title}</h3><p class="text-base text-gray-700 mt-1"><strong>Event Period:</strong> ${dateRangeString}</p><div class="mt-3"><h4 class="font-semibold mb-2 text-gray-800">Rules & Submission:</h4>${rulesHtml}</div>${buttonsHtml}</div></div>`;
 }
 
-function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null, isFx = false, fxCode = null, isFx3 = false, fxHost = null, fxPassword = null, isFx24 = false, fxStart = null) {
+function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = null, isSwl = false, isTtd = false, isVpc = false, author = null, tnotes = null, rnotes = null, hide = false, b2sUrl = null, romAuthor = null, b2sAuthor = null, tfeatures = null, rfeatures = null, imgUrl = null, isFx = false, fxCode = null, isFx3 = false, fxHost = null, fxPassword = null, isFx24 = false, fxStart = null, is90min = false) {
     mainTitle.classList.add('hidden');
     searchContainer.classList.add('hidden');
     mainContent.classList.add('hidden');
@@ -255,6 +257,27 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         const iscoredUrl = "https://www.iScored.info/VPINHUB";
         const config = { title: "VPINHUB Special When Lit", cutoffDay: 0, cutoffHour: 14, cutoffTimezone: 'America/New_York', rulesHtml: rules, buttonsHtml: buttons(iscoredUrl) };
         tournamentCardHtml = createTournamentCard(config);
+    } else if (is90min) {
+        // --- 90 MINUTE TOURNAMENT MODE ---
+        const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the 90 minute period wins.</li></ul>`;
+        
+        const submitUrl = "https://www.iScored.info?mode=public&user=PaladinArcade";
+        const vpinStudioUrl = "https://www.iScored.info/PaladinArcade";
+
+        const buttons = `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${submitUrl}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${vpinStudioUrl}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
+        
+        // Calculate Today's date dynamically
+        const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Pass 'customDate' to override the weekly logic
+        const config = { 
+            title: "90 Min Visual Pinball Tournament", 
+            customDate: todayDate,
+            rulesHtml: rules, 
+            buttonsHtml: buttons 
+        };
+        tournamentCardHtml = createTournamentCard(config);
+
     } else if (isTtd) {
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the event period wins.</li><li>The submission deadline is <strong>Thursday at 2:00 PM Eastern Time</strong>.</li></ul>`;
         const buttons = (url) => `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${url}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${url}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
@@ -295,13 +318,8 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
 
 
         if (isFx24 && fxStart) {
-            // --- 24-Hour Tournament Card ---
             const { startTime, startString } = calculateFx24Times(fxStart);
             const cardTitle = `VPINHUB 24-Hour ${platformName} Tournament`;
-            
-            // <-- START: MODIFIED COUNTDOWN HTML -->
-            // The 'countdownHtml' variable definition has been removed.
-            // <-- END: MODIFIED COUNTDOWN HTML -->
             
             const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
                 <li>High score at the end of the 24-hour period wins.</li>
@@ -323,7 +341,6 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
             </div>`;
             
         } else {
-            // --- Standard 1-Hour Tournament Card ---
             const cardTitle = isFx3 ? "VPINHUB Pinball FX3 Tournament" : "VPINHUB Pinball FX Tournament";  
 
             let rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
@@ -446,10 +463,6 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
 
     focusedViewContainer.innerHTML = focusedContent;
     focusedViewContainer.classList.remove('hidden');
-
-    // <-- START: MODIFIED COUNTDOWN CALL -->
-    // The 'startCountdown' function call has been removed.
-    // <-- END: MODIFIED COUNTDOWN CALL -->
 }
 
 function renderCard(item) {
