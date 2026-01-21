@@ -211,16 +211,13 @@ function calculateFx24Times(fxStartParam) {
 
 // --- View Rendering ---
 function createTournamentCard(config) {
-    // UPDATED: Now destructures 'customDate' from config
     const { title, rulesHtml, buttonsHtml, cutoffDay, cutoffHour, cutoffTimezone, customDate } = config;
     
     let dateRangeString = "";
 
     if (customDate) {
-        // If a custom date is provided, use it directly
         dateRangeString = customDate;
     } else {
-        // Otherwise, calculate the weekly range as before
         const nowTZ = new Date(new Date().toLocaleString('en-US', { timeZone: cutoffTimezone }));
         let endDate = new Date(nowTZ);
         endDate.setHours(cutoffHour, 0, 0, 0);
@@ -253,36 +250,30 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
 
     if (isSwl) {
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the event period wins.</li><li>The submission deadline is <strong>Sunday at 2:00 PM Eastern Time</strong>.</li></ul>`;
-        const buttons = (url) => `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${url}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${url}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
-        const iscoredUrl = "https://www.iScored.info/VPINHUB";
-        const config = { title: "VPINHUB Special When Lit", cutoffDay: 0, cutoffHour: 14, cutoffTimezone: 'America/New_York', rulesHtml: rules, buttonsHtml: buttons(iscoredUrl) };
+        const buttons = (url, vpinUrl) => `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${url}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${vpinUrl}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
+        
+        const submitUrl = "https://iscored.info/?mode=public&user=vpinhub";
+        const vpinStudioUrl = "https://www.iScored.info/VPINHUB";
+        
+        const config = { title: "VPINHUB Special When Lit", cutoffDay: 0, cutoffHour: 14, cutoffTimezone: 'America/New_York', rulesHtml: rules, buttonsHtml: buttons(submitUrl, vpinStudioUrl) };
         tournamentCardHtml = createTournamentCard(config);
     } else if (is90min) {
-        // --- 90 MINUTE TOURNAMENT MODE ---
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the 90 minute period wins.</li></ul>`;
-        
         const submitUrl = "https://www.iScored.info?mode=public&user=PaladinArcade";
         const vpinStudioUrl = "https://www.iScored.info/PaladinArcade";
-
         const buttons = `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${submitUrl}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${vpinStudioUrl}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
-        
-        // Calculate Today's date dynamically
         const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-        // Pass 'customDate' to override the weekly logic
-        const config = { 
-            title: "90 Min Visual Pinball Tournament", 
-            customDate: todayDate,
-            rulesHtml: rules, 
-            buttonsHtml: buttons 
-        };
+        const config = { title: "90 Min Visual Pinball Tournament", customDate: todayDate, rulesHtml: rules, buttonsHtml: buttons };
         tournamentCardHtml = createTournamentCard(config);
 
     } else if (isTtd) {
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>All scores must be submitted via <strong>iScored</strong>.</li><li>Manual submissions to iScored require a <strong>photo for verification</strong>.</li><li>VPinStudio auto-submissions are permitted, but players are responsible for <strong>verifying their score has posted</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The player with the highest valid score at the end of the event period wins.</li><li>The submission deadline is <strong>Thursday at 2:00 PM Eastern Time</strong>.</li></ul>`;
-        const buttons = (url) => `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${url}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${url}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
-        const iscoredUrl = "https://www.iScored.info/SMAUG";
-        const config = { title: "VPINHUB Thursday Throw Down", cutoffDay: 4, cutoffHour: 14, cutoffTimezone: 'America/New_York', rulesHtml: rules, buttonsHtml: buttons(iscoredUrl) };
+        const buttons = (url, vpinUrl) => `<div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center"><a href="${url}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">Submit Score</a><button onclick="copyToClipboard('${vpinUrl}', this)" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">VPinStudio iScored Link</button></div>`;
+        
+        const submitUrl = "https://iscored.info/?mode=public&user=smaug";
+        const vpinStudioUrl = "https://www.iScored.info/SMAUG";
+        
+        const config = { title: "VPINHUB Thursday Throw Down", cutoffDay: 4, cutoffHour: 14, cutoffTimezone: 'America/New_York', rulesHtml: rules, buttonsHtml: buttons(submitUrl, vpinStudioUrl) };
         tournamentCardHtml = createTournamentCard(config);
     } else if (isVpc) {
         const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700"><li>Scores must be submitted in the <strong>VPC Discord</strong>.</li><li>Look at the pinned post in the competition channel for the current table link.</li><li>You MUST use the specified table and version.</li><li>Players are required to include a <strong>photo with score submission</strong>.</li><li>No table or script modifications that affect gameplay are allowed.</li><li>The number of balls per game MUST NOT be modified.</li><li>Only <strong>single-player</strong> games are allowed.</li><li>The submission deadline is <strong>Monday at 12:00 AM PST</strong>.</li><li>To post a score, you MUST use the <strong>!score</strong> command in Discord.</li></ul>`;
@@ -291,7 +282,6 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         tournamentCardHtml = createTournamentCard(config);
     
     } else if (isFxPlatform) {
-        
         const platformName = (isFx3) ? "Pinball FX3" : "Pinball FX";
         let rulesList = '';
         let codeHtml = '';
@@ -316,18 +306,15 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
             </div>`;
         }
 
-
         if (isFx24 && fxStart) {
             const { startTime, startString } = calculateFx24Times(fxStart);
             const cardTitle = `VPINHUB 24-Hour ${platformName} Tournament`;
-            
             const rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
                 <li>High score at the end of the 24-hour period wins.</li>
                 <li>This tournament is for <strong>${platformName}</strong>.</li>
                 <li><strong>Starts:</strong> ${startString}</li>
                 ${rulesList}
             </ul>`;
-
             tournamentCardHtml = `<div class="bg-blue-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-blue-400">
                 <div class="flex-grow w-full">
                     <h3 class="text-xl font-semibold text-gray-900">${cardTitle}</h3>
@@ -339,16 +326,13 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
                     ${codeHtml}
                 </div>
             </div>`;
-            
         } else {
             const cardTitle = isFx3 ? "VPINHUB Pinball FX3 Tournament" : "VPINHUB Pinball FX Tournament";  
-
             let rules = `<ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
                 <li>High score at the end of the 1-hour tournament period wins.</li>
                 <li>This tournament is for <strong>${platformName}</strong>.</li>
                 ${rulesList}
             </ul>`;  
-            
             tournamentCardHtml = `<div class="bg-blue-50 rounded-xl p-5 flex flex-col gap-4 items-start border-2 border-blue-400">
                 <div class="flex-grow w-full">
                     <h3 class="text-xl font-semibold text-gray-900">${cardTitle}</h3>
@@ -369,30 +353,19 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
     }
 
     let tableLabel = "Visual Pinball Table";
-    if (unlistedTableUrl) {
-        tableLabel = "Tournament Table";  
-    }
-    if (isFxPlatform) {
-        tableLabel = "Tournament Pinball Table";  
-    }
+    if (unlistedTableUrl) { tableLabel = "Tournament Table"; }
+    if (isFxPlatform) { tableLabel = "Tournament Pinball Table"; }
 
     let focusedTableHtml = '';
     if (unlistedTableUrl) {
         const fakeTableFile = { urls: [{ url: unlistedTableUrl }] };
-        if (author && author.trim() !== '') {
-            fakeTableFile.authors = [author.trim()];
-        }
-        if (tfeatures) {
-            fakeTableFile.features = decodeURIComponent(tfeatures.replace(/_/g, ' ')).split(',');
-        }
+        if (author && author.trim() !== '') { fakeTableFile.authors = [author.trim()]; }
+        if (tfeatures) { fakeTableFile.features = decodeURIComponent(tfeatures.replace(/_/g, ' ')).split(','); }
         focusedTableHtml = renderFile(fakeTableFile, tableLabel, item.id, true, isFxPlatform);
     } else {
         const focusedTableFile = (item.tableFiles || []).find(f => f.id === releaseId);
-        if (focusedTableFile) {
-            focusedTableHtml = renderFile(focusedTableFile, tableLabel, item.id, true, isFxPlatform);
-        }
+        if (focusedTableFile) { focusedTableHtml = renderFile(focusedTableFile, tableLabel, item.id, true, isFxPlatform); }
     }
-    
     
     let dynamicRomHtml = '';
     let existingRomFilesHtml = '';
@@ -400,18 +373,11 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
     if (!isFxPlatform) {  
         if (romUrl) {
             const fakeRomFile = { urls: [{ url: romUrl }] };
-            if (rnotes) {
-                fakeRomFile.comment = decodeURIComponent(rnotes.replace(/_/g, ' '));
-            }
-            if (romAuthor) {
-                fakeRomFile.authors = [decodeURIComponent(romAuthor.replace(/_/g, ' '))];
-            }
-            if (rfeatures) {
-                fakeRomFile.features = decodeURIComponent(rfeatures.replace(/_/g, ' ')).split(',');
-            }
+            if (rnotes) { fakeRomFile.comment = decodeURIComponent(rnotes.replace(/_/g, ' ')); }
+            if (romAuthor) { fakeRomFile.authors = [decodeURIComponent(romAuthor.replace(/_/g, ' '))]; }
+            if (rfeatures) { fakeRomFile.features = decodeURIComponent(rfeatures.replace(/_/g, ' ')).split(','); }
             dynamicRomHtml = renderFile(fakeRomFile, "Tournament Table Rom", null, true);
         }
-        
         existingRomFilesHtml = (item.romFiles || []).map(f => renderFile(f, "ROM", null, true)).join("");
     }
 
@@ -423,7 +389,6 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
             authorName = decodeURIComponent(b2sAuthor.replace(/_/g, ' '));
             fakeB2sFile.authors = [authorName];
         }
-
         if (!isFxPlatform || (isFxPlatform && authorName.toLowerCase() === 'ddh69')) {
              dynamicB2sHtml = renderFile(fakeB2sFile, "Tournament B2S", null, true);
         }
