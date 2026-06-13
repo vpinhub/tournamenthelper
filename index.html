@@ -374,9 +374,10 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
         if (romUrl) {
             const fakeRomFile = { urls: [{ url: romUrl }] };
             if (rnotes) { fakeRomFile.comment = decodeURIComponent(rnotes.replace(/_/g, ' ')); }
+            else if (isVpc) { fakeRomFile.comment = 'This is the ROM specified in the pinned post in the VPC Discord competition channel.'; }
             if (romAuthor) { fakeRomFile.authors = [decodeURIComponent(romAuthor.replace(/_/g, ' '))]; }
             if (rfeatures) { fakeRomFile.features = decodeURIComponent(rfeatures.replace(/_/g, ' ')).split(','); }
-            dynamicRomHtml = renderFile(fakeRomFile, "Tournament Table Rom", null, true);
+            dynamicRomHtml = renderFile(fakeRomFile, isVpc ? "VPC Competition ROM" : "Tournament Table Rom", null, true);
         }
         if (!romUrl) {
             existingRomFilesHtml = (item.romFiles || []).map(f => renderFile(f, "ROM", null, true)).join("");
@@ -391,8 +392,9 @@ function renderFocusedView(itemId, releaseId, romUrl = null, unlistedTableUrl = 
             authorName = decodeURIComponent(b2sAuthor.replace(/_/g, ' '));
             fakeB2sFile.authors = [authorName];
         }
+        if (isVpc && !b2sAuthor) { fakeB2sFile.comment = 'This is the B2S specified in the pinned post in the VPC Discord competition channel.'; }
         if (!isFxPlatform || (isFxPlatform && authorName.toLowerCase() === 'ddh69')) {
-             dynamicB2sHtml = renderFile(fakeB2sFile, "Tournament B2S", null, true);
+             dynamicB2sHtml = renderFile(fakeB2sFile, isVpc ? "VPC Competition B2S" : "Tournament B2S", null, true);
         }
     }
 
